@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Splitwise - Expense Tracker</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>💰 Splitwise - Expense Tracker</h1>
+            <div class="balance-section">
+                <div class="current-user-balance">
+                    <h2>{{ current_user }}'s Balance</h2>
+                    {% if user_balance > 0 %}
+                        <p class="balance positive">${{ "%.2f"|format(user_balance) }} <span class="balance-text">You are owed</span></p>
+                    {% elif user_balance < 0 %}
+                        <p class="balance negative">${{ "%.2f"|format(-user_balance) }} <span class="balance-text">You owe</span></p>
+                    {% else %}
+                        <p class="balance neutral">$0.00 <span class="balance-text">You're settled up</span></p>
+                    {% endif %}
+                </div>
+            </div>
+            <a href="{{ url_for('add_expense') }}" class="btn btn-primary">+ Add Expense</a>
+        </header>
+
+        <main>
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    <div class="flash-messages">
+                        {% for category, message in messages %}
+                            <div class="flash-message {{ category }}">{{ message }}</div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            {% endwith %}
+            
+            {% if expenses %}
+                <h2>Recent Expenses</h2>
+                <div class="expense-list">
+                    {% for expense in expenses %}
+                        <div class="expense-card">
+                            <div class="expense-header">
+                                <h3>{{ expense.title }}</h3>
+                                <span class="amount">${{ "%.2f"|format(expense.amount) }}</span>
+                            </div>
+                            <div class="expense-details">
+                                <p><strong>Paid by:</strong> {{ expense.paid_by }}</p>
+                                <p><strong>Date:</strong> {{ expense.date.strftime('%Y-%m-%d %H:%M') }}</p>
+                                <p><strong>Split:</strong> {{ expense.split_type.value.title() }}</p>
+                                {% if expense.category %}
+                                    <p><strong>Category:</strong> {{ expense.category }}</p>
+                                {% endif %}
+                                <p><strong>Participants:</strong> 
+                                    {% for participant in expense.participants %}
+                                        {{ participant.name }}{% if not loop.last %}, {% endif %}
+                                    {% endfor %}
+                                </p>
+                            </div>
+                            <div class="expense-actions">
+                                <a href="{{ url_for('view_expense', expense_id=expense.id) }}" class="btn btn-secondary">View Details</a>
+                                <a href="{{ url_for('edit_expense', expense_id=expense.id) }}" class="btn btn-primary">✏️ Edit</a>
+                                <form method="POST" action="{{ url_for('delete_expense', expense_id=expense.id) }}" style="display: inline;" onsubmit="return confirmDelete('{{ expense.title }}')">
+                                    <button type="submit" class="btn btn-danger">🗑️ Delete</button>
+                                </form>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="empty-state">
+                    <h2>No expenses yet</h2>
+                    <p>Start by adding your first expense!</p>
+                    <a href="{{ url_for('add_expense') }}" class="btn btn-primary">Add Your First Expense</a>
+                </div>
+            {% endif %}
+        </main>
+    </div>
+
+    <script>
+        function confirmDelete(expenseTitle) {
+            return confirm(`Are you sure you want to delete "${expenseTitle}"? This action cannot be undone.`);
+        }
+    </script>
+</body>
+</html>

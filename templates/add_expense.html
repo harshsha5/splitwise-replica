@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Add Expense - Splitwise</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>💰 Add New Expense</h1>
+            <a href="{{ url_for('index') }}" class="btn btn-secondary">← Back to Expenses</a>
+        </header>
+
+        <main>
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    <div class="flash-messages">
+                        {% for category, message in messages %}
+                            <div class="flash-message {{ category }}">{{ message }}</div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            {% endwith %}
+            
+            <form method="POST" class="expense-form" id="expenseForm">
+                <div class="form-group">
+                    <label for="title">Expense Title *</label>
+                    <input type="text" id="title" name="title" required placeholder="e.g., Dinner at restaurant">
+                </div>
+
+                <div class="form-group">
+                    <label for="amount">Amount *</label>
+                    <input type="number" id="amount" name="amount" step="0.01" min="0" required placeholder="0.00">
+                </div>
+
+                <div class="form-group">
+                    <label for="paid_by">Paid By *</label>
+                    <input type="text" id="paid_by" name="paid_by" required placeholder="Person who paid">
+                </div>
+
+                <div class="form-group">
+                    <label for="participants">Participants *</label>
+                    <div class="participant-input-container">
+                        <div class="participant-tags" id="participantTags"></div>
+                        <input type="text" id="participantInput" placeholder="Type name and press Enter to add" autocomplete="off">
+                        <datalist id="participantSuggestions"></datalist>
+                    </div>
+                    <input type="hidden" id="participants" name="participants" required>
+                    <small>Type names and press Enter to add them. The person who paid will be automatically included</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="split_type">Split Type *</label>
+                    <select id="split_type" name="split_type" required onchange="toggleCustomSplit()">
+                        <option value="equal">Equal Split</option>
+                        <option value="custom">Custom Split</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="advanced_payments" onchange="toggleAdvancedPayments()">
+                        Enable Multiple Payers (Advanced)
+                    </label>
+                    <small>Check this if more than one person contributed to paying this expense</small>
+                </div>
+
+                <div id="payment_details" style="display: none;">
+                    <h3>Payment Details</h3>
+                    <div id="payment_container"></div>
+                </div>
+
+                <div id="custom_splits" style="display: none;">
+                    <h3>Custom Split Amounts</h3>
+                    <div id="custom_splits_container"></div>
+                </div>
+
+                <div class="form-group">
+                    <label for="category">Category (Optional)</label>
+                    <select id="category" name="category">
+                        <option value="">Select a category</option>
+                        <option value="Food & Dining">Food & Dining</option>
+                        <option value="Entertainment">Entertainment</option>
+                        <option value="Transportation">Transportation</option>
+                        <option value="Shopping">Shopping</option>
+                        <option value="Utilities">Utilities</option>
+                        <option value="Travel">Travel</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </div>
+
+                <button type="submit" class="btn btn-primary">Add Expense</button>
+            </form>
+        </main>
+    </div>
+
+    <script>
+        let participants = [];
+
+        // Load participant suggestions from API
+        async function loadParticipantSuggestions() {
+            try {
+                const response = await fetch('/api/participants');
+                const allParticipants = await response.json();
+                const datalist = document.getElementById('participantSuggestions');
+                datalist.innerHTML = '';
+                allParticipants.forEach(name => {
+                    const option = document.createElement('option');
+                    option.value = name;
+                    datalist.appendChild(option);
+                });
+            } catch (error) {
+                console.log('Could not load participant suggestions');
+            }
+        }
+
+        function addParticipant(name) {
+            name = name.trim();
+            if (!name || participants.includes(name)) {
+                return false;
+            }
+            
+            participants.push(name);
+            renderParticipantTags();
+            updateHiddenInput();
+            return true;
+        }
+
+        function removeParticipant(name) {
+            const index = participants.indexOf(name);
+            if (index > -1) {
+                participants.splice(index, 1);
+                renderParticipantTags();
+                updateHiddenInput();
+            }
+        }
+
+        function renderParticipantTags() {
+            const container = document.getElementById('participantTags');
+            container.innerHTML = '';
+            
+            participants.forEach(name => {
+                const tag = document.createElement('div');
+                tag.className = 'participant-tag';
+                tag.innerHTML = `
+                    <span class="tag-name">${name}</span>
+                    <button type="button" class="tag-remove" onclick="removeParticipant('${name}')">×</button>
+                `;
+                container.appendChild(tag);
+            });
+        }
+
+        function updateHiddenInput() {
+            document.getElementById('participants').value = participants.join(', ');
+            
+            // Update other sections when participants change
+            if (document.getElementById('split_type').value === 'custom') {
+                updateCustomSplits();
+            }
+            if (document.getElementById('advanced_payments').checked) {
+                updatePaymentDetails();
+            }
+        }
+
+        function toggleCustomSplit() {
+            const splitType = document.getElementById('split_type').value;
+            const customSplits = document.getElementById('custom_splits');
+            
+            if (splitType === 'custom') {
+                customSplits.style.display = 'block';
+                updateCustomSplits();
+            } else {
+                customSplits.style.display = 'none';
+            }
+        }
+
+        function toggleAdvancedPayments() {
+            const advancedPayments = document.getElementById('advanced_payments').checked;
+            const paymentDetails = document.getElementById('payment_details');
+            
+            if (advancedPayments) {
+                paymentDetails.style.display = 'block';
+                updatePaymentDetails();
+            } else {
+                paymentDetails.style.display = 'none';
+            }
+        }
+
+        function updatePaymentDetails() {
+            const container = document.getElementById('payment_container');
+            
+            if (!participants.length) {
+                container.innerHTML = '<p>Please add participants first</p>';
+                return;
+            }
+            
+            container.innerHTML = '';
+            
+            participants.forEach((name, index) => {
+                const div = document.createElement('div');
+                div.className = 'form-group';
+                div.innerHTML = `
+                    <label for="payment_amount_${index}">${name} paid:</label>
+                    <input type="number" id="payment_amount_${index}" name="payment_amount_${index}" 
+                           step="0.01" min="0" placeholder="0.00">
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        function updateCustomSplits() {
+            const container = document.getElementById('custom_splits_container');
+            
+            if (!participants.length) {
+                container.innerHTML = '<p>Please add participants first</p>';
+                return;
+            }
+            
+            container.innerHTML = '';
+            
+            participants.forEach((name, index) => {
+                const div = document.createElement('div');
+                div.className = 'form-group';
+                div.innerHTML = `
+                    <label for="custom_amount_${index}">${name} owes:</label>
+                    <input type="number" id="custom_amount_${index}" name="custom_amount_${index}" 
+                           step="0.01" min="0" placeholder="0.00">
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        // Initialize participant input functionality
+        document.addEventListener('DOMContentLoaded', function() {
+            const participantInput = document.getElementById('participantInput');
+            
+            // Load suggestions
+            loadParticipantSuggestions();
+            
+            // Handle Enter key and comma separation
+            participantInput.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter' || e.key === ',') {
+                    e.preventDefault();
+                    const name = this.value.trim().replace(',', '');
+                    if (addParticipant(name)) {
+                        this.value = '';
+                    }
+                }
+            });
+
+            // Handle blur (when user clicks away)
+            participantInput.addEventListener('blur', function() {
+                const name = this.value.trim().replace(',', '');
+                if (name && addParticipant(name)) {
+                    this.value = '';
+                }
+            });
+
+            // Set datalist for autocomplete
+            participantInput.setAttribute('list', 'participantSuggestions');
+        });
+    </script>
+</body>
+</html>

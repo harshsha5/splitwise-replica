@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ expense.title }} - Splitwise</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>💰 Expense Details</h1>
+            <div class="header-actions">
+                <a href="{{ url_for('edit_expense', expense_id=expense.id) }}" class="btn btn-primary">✏️ Edit</a>
+                <form method="POST" action="{{ url_for('delete_expense', expense_id=expense.id) }}" style="display: inline;" onsubmit="return confirmDelete()">
+                    <button type="submit" class="btn btn-danger">🗑️ Delete</button>
+                </form>
+                <a href="{{ url_for('index') }}" class="btn btn-secondary">← Back to Expenses</a>
+            </div>
+        </header>
+
+        <main>
+            <div class="expense-detail">
+                <div class="expense-header">
+                    <h2>{{ expense.title }}</h2>
+                    <span class="amount">${{ "%.2f"|format(expense.amount) }}</span>
+                </div>
+                
+                <div class="expense-info">
+                    <div class="info-row">
+                        <strong>Paid by:</strong> {{ expense.paid_by }}
+                    </div>
+                    <div class="info-row">
+                        <strong>Date:</strong> {{ expense.date.strftime('%Y-%m-%d %H:%M') }}
+                    </div>
+                    <div class="info-row">
+                        <strong>Split type:</strong> {{ expense.split_type.value.title() }}
+                    </div>
+                    {% if expense.category %}
+                    <div class="info-row">
+                        <strong>Category:</strong> {{ expense.category }}
+                    </div>
+                    {% endif %}
+                </div>
+
+                <h3>Split Breakdown</h3>
+                <div class="split-breakdown">
+                    {% for participant in expense.participants %}
+                        <div class="participant-split">
+                            <span class="participant-name">{{ participant.name }}</span>
+                            <span class="participant-amount">owes ${{ "%.2f"|format(participant.amount_owed) }}</span>
+                        </div>
+                    {% endfor %}
+                </div>
+
+                <h3>Payment Details</h3>
+                <div class="payment-breakdown">
+                    {% for participant in expense.participants %}
+                        {% if participant.amount_paid > 0 %}
+                        <div class="participant-split">
+                            <span class="participant-name">{{ participant.name }}</span>
+                            <span class="participant-amount">paid ${{ "%.2f"|format(participant.amount_paid) }}</span>
+                        </div>
+                        {% endif %}
+                    {% endfor %}
+                </div>
+
+                <h3>Balance Summary</h3>
+                <div class="balance-summary">
+                    {% for name, balance in balances.items() %}
+                        <div class="balance-item {% if balance < 0 %}owes{% else %}owed{% endif %}">
+                            <span class="balance-name">{{ name }}</span>
+                            {% if balance < 0 %}
+                                <span class="balance-amount owes">owes ${{ "%.2f"|format(-balance) }}</span>
+                            {% elif balance > 0 %}
+                                <span class="balance-amount owed">is owed ${{ "%.2f"|format(balance) }}</span>
+                            {% else %}
+                                <span class="balance-amount settled">settled</span>
+                            {% endif %}
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        function confirmDelete() {
+            return confirm('Are you sure you want to delete this expense? This action cannot be undone.');
+        }
+    </script>
+</body>
+</html>

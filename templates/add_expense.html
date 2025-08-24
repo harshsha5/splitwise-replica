@@ -24,7 +24,7 @@
                 {% endif %}
             {% endwith %}
             
-            <form method="POST" class="expense-form" id="expenseForm">
+            <form method="POST" class="expense-form" id="expenseForm" onsubmit="return validateForm()">
                 <div class="form-group">
                     <label for="title">Expense Title *</label>
                     <input type="text" id="title" name="title" required placeholder="e.g., Dinner at restaurant">
@@ -43,7 +43,26 @@
                         <datalist id="payerSuggestions"></datalist>
                     </div>
                     <input type="hidden" id="paid_by" name="paid_by" required>
-                    <small>Type names and press Enter to add them. Multiple people can contribute to paying</small>
+                    <small>Type names and press Enter to add them</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="payment_type">Payment Type *</label>
+                    <div class="payment-type-selection">
+                        <button type="button" id="equalPayment" class="payment-type-btn active" onclick="togglePaymentType('equal')">Equal Payment</button>
+                        <button type="button" id="unequalPayment" class="payment-type-btn" onclick="togglePaymentType('unequal')">Unequal Payment</button>
+                    </div>
+                    <input type="hidden" id="payment_type" name="payment_type" value="equal" required>
+                    <small>Choose how the expense amount is divided among payers</small>
+                </div>
+
+                <div id="unequal_payments" style="display: none;">
+                    <h3>Payment Amounts</h3>
+                    <div id="unequal_payments_container"></div>
+                    <div class="payment-total-info">
+                        <span id="paymentTotalDisplay">Total: $0.00</span>
+                        <span id="paymentRemainingDisplay">Remaining: $0.00</span>
+                    </div>
                 </div>
 
                 <div class="form-group">
@@ -65,18 +84,6 @@
                     </select>
                 </div>
 
-                <div class="form-group">
-                    <label>
-                        <input type="checkbox" id="advanced_payments" onchange="toggleAdvancedPayments()">
-                        Enable Multiple Payers (Advanced)
-                    </label>
-                    <small>Check this if more than one person contributed to paying this expense</small>
-                </div>
-
-                <div id="payment_details" style="display: none;">
-                    <h3>Payment Details</h3>
-                    <div id="payment_container"></div>
-                </div>
 
                 <div id="custom_splits" style="display: none;">
                     <h3>Custom Split Amounts</h3>
@@ -105,6 +112,7 @@
     <script>
         let participants = [];
         let payers = [];
+        let paymentAmounts = {};
 
         // Load participant suggestions from API
         async function loadParticipantSuggestions() {
@@ -170,12 +178,9 @@
         function updateHiddenInput() {
             document.getElementById('participants').value = participants.join(', ');
             
-            // Update other sections when participants change
+            // Update custom splits when participants change
             if (document.getElementById('split_type').value === 'custom') {
                 updateCustomSplits();
-            }
-            if (document.getElementById('advanced_payments').checked) {
-                updatePaymentDetails();
             }
         }
 
@@ -195,6 +200,7 @@
             const index = payers.indexOf(name);
             if (index > -1) {
                 payers.splice(index, 1);
+                handlePayerRemoval(name);
                 renderPayerTags();
                 updatePayerHiddenInput();
             }
@@ -218,11 +224,106 @@
         function updatePayerHiddenInput() {
             document.getElementById('paid_by').value = payers.join(', ');
             
-            // Auto-enable advanced payments if multiple payers
-            if (payers.length > 1) {
-                document.getElementById('advanced_payments').checked = true;
-                toggleAdvancedPayments();
+            // Update unequal payments when payers change
+            if (document.getElementById('payment_type').value === 'unequal') {
+                updateUnequalPayments();
             }
+        }
+
+        function togglePaymentType(type) {
+            const equalBtn = document.getElementById('equalPayment');
+            const unequalBtn = document.getElementById('unequalPayment');
+            const unequalSection = document.getElementById('unequal_payments');
+            const paymentTypeInput = document.getElementById('payment_type');
+            
+            if (type === 'equal') {
+                equalBtn.classList.add('active');
+                unequalBtn.classList.remove('active');
+                unequalSection.style.display = 'none';
+                paymentTypeInput.value = 'equal';
+            } else {
+                equalBtn.classList.remove('active');
+                unequalBtn.classList.add('active');
+                unequalSection.style.display = 'block';
+                paymentTypeInput.value = 'unequal';
+                updateUnequalPayments();
+            }
+        }
+
+        function updateUnequalPayments() {
+            const container = document.getElementById('unequal_payments_container');
+            
+            if (!payers.length) {
+                container.innerHTML = '<p>Please add payers first</p>';
+                updatePaymentTotals();
+                return;
+            }
+            
+            container.innerHTML = '';
+            
+            payers.forEach((name, index) => {
+                const currentAmount = paymentAmounts[name] || 0;
+                const div = document.createElement('div');
+                div.className = 'form-group';
+                div.innerHTML = `
+                    <label for="payment_amount_${index}">${name} pays:</label>
+                    <input type="number" id="payment_amount_${index}" name="payment_amount_${name}" 
+                           value="${currentAmount}" step="0.01" min="0" placeholder="0.00" 
+                           onchange="updatePaymentAmount('${name}', this.value)">
+                `;
+                container.appendChild(div);
+            });
+            
+            updatePaymentTotals();
+        }
+
+        function updatePaymentAmount(payerName, amount) {
+            paymentAmounts[payerName] = parseFloat(amount) || 0;
+            updatePaymentTotals();
+        }
+
+        function updatePaymentTotals() {
+            const totalAmount = parseFloat(document.getElementById('amount').value) || 0;
+            const totalPaid = Object.values(paymentAmounts).reduce((sum, amount) => sum + amount, 0);
+            const remaining = totalAmount - totalPaid;
+            
+            document.getElementById('paymentTotalDisplay').textContent = `Total: $${totalPaid.toFixed(2)}`;
+            document.getElementById('paymentRemainingDisplay').textContent = `Remaining: $${remaining.toFixed(2)}`;
+            
+            // Color code the remaining amount
+            const remainingDisplay = document.getElementById('paymentRemainingDisplay');
+            if (Math.abs(remaining) < 0.01) {
+                remainingDisplay.style.color = '#27ae60'; // Green for balanced
+            } else if (remaining > 0) {
+                remainingDisplay.style.color = '#e74c3c'; // Red for underbalanced
+            } else {
+                remainingDisplay.style.color = '#f39c12'; // Orange for overbalanced  
+            }
+        }
+
+        function handlePayerRemoval(name) {
+            // Remove from payment amounts
+            delete paymentAmounts[name];
+            
+            // If only one payer remains, set their amount to total expense amount
+            if (payers.length === 1 && document.getElementById('payment_type').value === 'unequal') {
+                const totalAmount = parseFloat(document.getElementById('amount').value) || 0;
+                paymentAmounts[payers[0]] = totalAmount;
+                updateUnequalPayments();
+            }
+        }
+
+        function validateForm() {
+            if (document.getElementById('payment_type').value === 'unequal') {
+                const totalAmount = parseFloat(document.getElementById('amount').value) || 0;
+                const totalPaid = Object.values(paymentAmounts).reduce((sum, amount) => sum + amount, 0);
+                
+                if (Math.abs(totalAmount - totalPaid) > 0.01) {
+                    alert(`Payment amounts don't balance! Total expense: $${totalAmount.toFixed(2)}, Total payments: $${totalPaid.toFixed(2)}`);
+                    return false;
+                }
+            }
+            return true;
         }
 
         function toggleCustomSplit() {
@@ -237,39 +338,6 @@
             }
         }
 
-        function toggleAdvancedPayments() {
-            const advancedPayments = document.getElementById('advanced_payments').checked;
-            const paymentDetails = document.getElementById('payment_details');
-            
-            if (advancedPayments) {
-                paymentDetails.style.display = 'block';
-                updatePaymentDetails();
-            } else {
-                paymentDetails.style.display = 'none';
-            }
-        }
-
-        function updatePaymentDetails() {
-            const container = document.getElementById('payment_container');
-            
-            if (!participants.length) {
-                container.innerHTML = '<p>Please add participants first</p>';
-                return;
-            }
-            
-            container.innerHTML = '';
-            
-            participants.forEach((name, index) => {
-                const div = document.createElement('div');
-                div.className = 'form-group';
-                div.innerHTML = `
-                    <label for="payment_amount_${index}">${name} paid:</label>
-                    <input type="number" id="payment_amount_${index}" name="payment_amount_${index}" 
-                           step="0.01" min="0" placeholder="0.00">
-                `;
-                container.appendChild(div);
-            });
-        }
 
         function updateCustomSplits() {
             const container = document.getElementById('custom_splits_container');
@@ -299,6 +367,14 @@
             
             // Load suggestions
             loadParticipantSuggestions();
+            
+            // Add event listener to amount field to update payment totals
+            const amountField = document.getElementById('amount');
+            amountField.addEventListener('input', function() {
+                if (document.getElementById('payment_type').value === 'unequal') {
+                    updatePaymentTotals();
+                }
+            });
             
             // Handle Enter key and comma separation
             participantInput.addEventListener('keydown', function(e) {

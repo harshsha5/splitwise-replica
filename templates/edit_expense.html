@@ -24,7 +24,7 @@
                 {% endif %}
             {% endwith %}
             
-            <form method="POST" class="expense-form" id="expenseForm">
+            <form method="POST" class="expense-form" id="expenseForm" onsubmit="return validateForm()">
                 <div class="form-group">
                     <label for="title">Expense Title *</label>
                     <input type="text" id="title" name="title" value="{{ expense.title }}" required placeholder="e.g., Dinner at restaurant">
@@ -49,6 +49,46 @@
                 </div>
 
                 <div class="form-group">
+                    <label for="payment_type">Payment Type *</label>
+                    <div class="payment-type-selection">
+                        <button type="button" id="equalPayment" class="payment-type-btn {% if expense.payment_type.value == 'equal' %}active{% endif %}" onclick="togglePaymentType('equal')">Equal Payment</button>
+                        <button type="button" id="unequalPayment" class="payment-type-btn {% if expense.payment_type.value == 'unequal' %}active{% endif %}" onclick="togglePaymentType('unequal')">Unequal Payment</button>
+                    </div>
+                    <input type="hidden" id="payment_type" name="payment_type" value="{{ expense.payment_type.value }}" required>
+                    <small>Choose how the expense amount is divided among payers</small>
+                </div>
+
+                <div id="unequal_payments" style="{% if expense.payment_type.value != 'unequal' %}display: none;{% endif %}">
+                    <h3>Payment Amounts</h3>
+                    <div id="unequal_payments_container">
+                        {% if expense.payment_type.value == 'unequal' %}
+                            {% set payer_names = expense.paid_by.split(',') %}
+                            {% for payer_name in payer_names %}
+                                {% set payer_name = payer_name.strip() %}
+                                {% set payment_amount = 0 %}
+                                {% for participant in expense.participants %}
+                                    {% if participant.name == payer_name %}
+                                        {% set payment_amount = participant.amount_paid %}
+                                    {% endif %}
+                                {% endfor %}
+                                {% if payment_amount == 0 and payer_name in expense.external_payments %}
+                                    {% set payment_amount = expense.external_payments[payer_name] %}
+                                {% endif %}
+                                <div class="form-group">
+                                    <label for="payment_amount_{{ loop.index0 }}">{{ payer_name }} pays:</label>
+                                    <input type="number" id="payment_amount_{{ loop.index0 }}" name="payment_amount_{{ payer_name }}" 
+                                           value="{{ payment_amount }}" step="0.01" min="0" placeholder="0.00">
+                                </div>
+                            {% endfor %}
+                        {% endif %}
+                    </div>
+                    <div class="payment-total-info">
+                        <span id="paymentTotalDisplay">Total: $0.00</span>
+                        <span id="paymentRemainingDisplay">Remaining: $0.00</span>
+                    </div>
+                </div>
+
+                <div class="form-group">
                     <label for="participants">Participants *</label>
                     <div class="participant-input-container">
                         <div class="participant-tags" id="participantTags"></div>
@@ -70,29 +110,6 @@
                     </select>
                 </div>
 
-                <div class="form-group">
-                    <label>
-                        <input type="checkbox" id="advanced_payments" onchange="toggleAdvancedPayments()" 
-                               {% set has_multiple_payers = [] %}{% for p in expense.participants %}{% if p.amount_paid > 0 and p.name != expense.paid_by %}{% if has_multiple_payers.append(1) %}{% endif %}{% endif %}{% endfor %}{% if has_multiple_payers %}checked{% endif %}>
-                        Enable Multiple Payers (Advanced)
-                    </label>
-                    <small>Check this if more than one person contributed to paying this expense</small>
-                </div>
-
-                <div id="payment_details" style="{% set has_multiple_payers = [] %}{% for p in expense.participants %}{% if p.amount_paid > 0 and p.name != expense.paid_by %}{% if has_multiple_payers.append(1) %}{% endif %}{% endif %}{% endfor %}{% if not has_multiple_payers %}display: none;{% endif %}">
-                    <h3>Payment Details</h3>
-                    <div id="payment_container">
-                        {% if expense.participants %}
-                            {% for participant in expense.participants %}
-                                <div class="form-group">
-                                    <label for="payment_amount_{{ loop.index0 }}">{{ participant.name }} paid:</label>
-                                    <input type="number" id="payment_amount_{{ loop.index0 }}" name="payment_amount_{{ loop.index0 }}" 
-                                           value="{{ participant.amount_paid }}" step="0.01" min="0" placeholder="0.00">
-                                </div>
-                            {% endfor %}
-                        {% endif %}
-                    </div>
-                </div>
 
                 <div id="custom_splits" style="{% if expense.split_type.value != 'custom' %}display: none;{% endif %}">
                     <h3>Custom Split Amounts</h3>
@@ -134,6 +151,7 @@
     <script>
         let participants = [];
         let payers = [];
+        let paymentAmounts = {};
 
         // Load participant suggestions from API
         async function loadParticipantSuggestions() {
@@ -199,12 +217,9 @@
         function updateHiddenInput() {
             document.getElementById('participants').value = participants.join(', ');
             
-            // Update other sections when participants change
+            // Update custom splits when participants change
             if (document.getElementById('split_type').value === 'custom') {
                 updateCustomSplits();
-            }
-            if (document.getElementById('advanced_payments').checked) {
-                updatePaymentDetails();
             }
         }
 
@@ -247,11 +262,116 @@
         function updatePayerHiddenInput() {
             document.getElementById('paid_by').value = payers.join(', ');
             
-            // Auto-enable advanced payments if multiple payers
-            if (payers.length > 1) {
-                document.getElementById('advanced_payments').checked = true;
-                toggleAdvancedPayments();
+            // Update unequal payments when payers change
+            if (document.getElementById('payment_type').value === 'unequal') {
+                updateUnequalPayments();
             }
+        }
+
+        function togglePaymentType(type) {
+            const equalBtn = document.getElementById('equalPayment');
+            const unequalBtn = document.getElementById('unequalPayment');
+            const unequalSection = document.getElementById('unequal_payments');
+            const paymentTypeInput = document.getElementById('payment_type');
+            
+            if (type === 'equal') {
+                equalBtn.classList.add('active');
+                unequalBtn.classList.remove('active');
+                unequalSection.style.display = 'none';
+                paymentTypeInput.value = 'equal';
+            } else {
+                equalBtn.classList.remove('active');
+                unequalBtn.classList.add('active');
+                unequalSection.style.display = 'block';
+                paymentTypeInput.value = 'unequal';
+                updateUnequalPayments();
+            }
+        }
+
+        function updateUnequalPayments() {
+            const container = document.getElementById('unequal_payments_container');
+            
+            if (!payers.length) {
+                container.innerHTML = '<p>Please add payers first</p>';
+                updatePaymentTotals();
+                return;
+            }
+            
+            container.innerHTML = '';
+            
+            payers.forEach((name, index) => {
+                const currentAmount = paymentAmounts[name] || 0;
+                const div = document.createElement('div');
+                div.className = 'form-group';
+                div.innerHTML = `
+                    <label for="payment_amount_${index}">${name} pays:</label>
+                    <input type="number" id="payment_amount_${index}" name="payment_amount_${name}" 
+                           value="${currentAmount}" step="0.01" min="0" placeholder="0.00" 
+                           onchange="updatePaymentAmount('${name}', this.value)">
+                `;
+                container.appendChild(div);
+            });
+            
+            updatePaymentTotals();
+        }
+
+        function updatePaymentAmount(payerName, amount) {
+            paymentAmounts[payerName] = parseFloat(amount) || 0;
+            updatePaymentTotals();
+        }
+
+        function updatePaymentTotals() {
+            const totalAmount = parseFloat(document.getElementById('amount').value) || 0;
+            const totalPaid = Object.values(paymentAmounts).reduce((sum, amount) => sum + amount, 0);
+            const remaining = totalAmount - totalPaid;
+            
+            document.getElementById('paymentTotalDisplay').textContent = `Total: $${totalPaid.toFixed(2)}`;
+            document.getElementById('paymentRemainingDisplay').textContent = `Remaining: $${remaining.toFixed(2)}`;
+            
+            // Color code the remaining amount
+            const remainingDisplay = document.getElementById('paymentRemainingDisplay');
+            if (Math.abs(remaining) < 0.01) {
+                remainingDisplay.style.color = '#27ae60'; // Green for balanced
+            } else if (remaining > 0) {
+                remainingDisplay.style.color = '#e74c3c'; // Red for underbalanced
+            } else {
+                remainingDisplay.style.color = '#f39c12'; // Orange for overbalanced  
+            }
+        }
+
+        function handlePayerRemoval(name) {
+            // Remove from payment amounts
+            delete paymentAmounts[name];
+            
+            // If only one payer remains, set their amount to total expense amount
+            if (payers.length === 1 && document.getElementById('payment_type').value === 'unequal') {
+                const totalAmount = parseFloat(document.getElementById('amount').value) || 0;
+                paymentAmounts[payers[0]] = totalAmount;
+                updateUnequalPayments();
+            }
+        }
+
+        function removePayer(name) {
+            const index = payers.indexOf(name);
+            if (index > -1) {
+                payers.splice(index, 1);
+                handlePayerRemoval(name);
+                renderPayerTags();
+                updatePayerHiddenInput();
+            }
+        }
+
+        function validateForm() {
+            if (document.getElementById('payment_type').value === 'unequal') {
+                const totalAmount = parseFloat(document.getElementById('amount').value) || 0;
+                const totalPaid = Object.values(paymentAmounts).reduce((sum, amount) => sum + amount, 0);
+                
+                if (Math.abs(totalAmount - totalPaid) > 0.01) {
+                    alert(`Payment amounts don't balance! Total expense: $${totalAmount.toFixed(2)}, Total payments: $${totalPaid.toFixed(2)}`);
+                    return false;
+                }
+            }
+            return true;
         }
 
         function toggleCustomSplit() {
@@ -266,39 +386,6 @@
             }
         }
 
-        function toggleAdvancedPayments() {
-            const advancedPayments = document.getElementById('advanced_payments').checked;
-            const paymentDetails = document.getElementById('payment_details');
-            
-            if (advancedPayments) {
-                paymentDetails.style.display = 'block';
-                updatePaymentDetails();
-            } else {
-                paymentDetails.style.display = 'none';
-            }
-        }
-
-        function updatePaymentDetails() {
-            const container = document.getElementById('payment_container');
-            
-            if (!participants.length) {
-                container.innerHTML = '<p>Please add participants first</p>';
-                return;
-            }
-            
-            container.innerHTML = '';
-            
-            participants.forEach((name, index) => {
-                const div = document.createElement('div');
-                div.className = 'form-group';
-                div.innerHTML = `
-                    <label for="payment_amount_${index}">${name} paid:</label>
-                    <input type="number" id="payment_amount_${index}" name="payment_amount_${index}" 
-                           step="0.01" min="0" placeholder="0.00">
-                `;
-                container.appendChild(div);
-            });
-        }
 
         function updateCustomSplits() {
             const container = document.getElementById('custom_splits_container');
@@ -339,10 +426,29 @@
             if (hiddenPayers) {
                 payers = hiddenPayers.split(',').map(name => name.trim()).filter(name => name);
                 renderPayerTags();
+                
+                // Initialize payment amounts from existing expense data
+                if (document.getElementById('payment_type').value === 'unequal') {
+                    payers.forEach(payerName => {
+                        const paymentField = document.querySelector(`input[name="payment_amount_${payerName}"]`);
+                        if (paymentField) {
+                            paymentAmounts[payerName] = parseFloat(paymentField.value) || 0;
+                        }
+                    });
+                    updatePaymentTotals();
+                }
             }
             
             // Load suggestions
             loadParticipantSuggestions();
+            
+            // Add event listener to amount field to update payment totals
+            const amountField = document.getElementById('amount');
+            amountField.addEventListener('input', function() {
+                if (document.getElementById('payment_type').value === 'unequal') {
+                    updatePaymentTotals();
+                }
+            });
             
             // Handle Enter key and comma separation
             participantInput.addEventListener('keydown', function(e) {

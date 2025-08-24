@@ -36,6 +36,9 @@
                     <div class="info-row">
                         <strong>Split type:</strong> {{ expense.split_type.value.title() }}
                     </div>
+                    <div class="info-row">
+                        <strong>Payment type:</strong> {{ expense.payment_type.value.title() }}
+                    </div>
                     {% if expense.category %}
                     <div class="info-row">
                         <strong>Category:</strong> {{ expense.category }}

@@ -7,6 +7,10 @@ class SplitType(Enum):
     EQUAL = "equal"
     CUSTOM = "custom"
 
+class PaymentType(Enum):
+    EQUAL = "equal"
+    UNEQUAL = "unequal"
+
 @dataclass
 class Participant:
     name: str
@@ -24,6 +28,7 @@ class Expense:
     date: datetime
     category: Optional[str] = None
     external_payments: Dict[str, float] = None  # Payments from non-participants
+    payment_type: PaymentType = PaymentType.EQUAL  # New field for payment type
     
     def __post_init__(self):
         if self.external_payments is None:
@@ -72,3 +77,8 @@ class Expense:
         """Check if total payments equal the expense amount"""
         total_paid = sum(p.amount_paid for p in self.participants) + sum(self.external_payments.values())
         return abs(total_paid - self.amount) < 0.01  # Allow for small rounding errors
+    
+    def validate_unequal_payments(self, payment_amounts: Dict[str, float]) -> bool:
+        """Validate that unequal payment amounts sum to total expense amount"""
+        total_payments = sum(payment_amounts.values())
+        return abs(total_payments - self.amount) < 0.01

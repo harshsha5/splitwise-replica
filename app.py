@@ -1,7 +1,7 @@
 from flask import Flask, render_template, request, redirect, url_for, jsonify, flash
 from datetime import datetime
 import uuid
-from models import Expense, Participant, SplitType
+from models import Expense, Participant, SplitType, PaymentType
 
 app = Flask(__name__)
 app.secret_key = 'your-secret-key-here'  # Needed for flash messages
@@ -51,6 +51,7 @@ def add_expense():
             primary_payer = payer_names[0] if payer_names else paid_by
             participants_str = request.form['participants']
             split_type = SplitType(request.form['split_type'])
+            payment_type = PaymentType(request.form['payment_type'])
             category = request.form.get('category', '')
             
             # Auto-include payers in participants if not already there
@@ -73,34 +74,41 @@ def add_expense():
                 paid_by=paid_by,  # Store full comma-separated list
                 participants=participants,
                 split_type=split_type,
+                payment_type=payment_type,
                 date=datetime.now(),
                 category=category if category else None
             )
             
-            # Handle payments - reset all to 0 first, then process form values
+            # Handle payments based on payment type
             payments = {}
             # Initialize all participants with 0 payment
             for participant in participants:
                 payments[participant.name] = 0.0
             
-            # Override with form values for participants
-            for key, value in request.form.items():
-                if key.startswith('payment_amount_'):
-                    try:
-                        index = int(key.split('_')[2])
-                        if index < len(participants):
-                            participant_name = participants[index].name
-                            payments[participant_name] = float(value) if value else 0.0
-                    except (ValueError, IndexError):
-                        continue
-            
-            # If no custom payments specified, distribute among payers
-            if sum(payments.values()) == 0:
+            if payment_type == PaymentType.EQUAL:
                 # Distribute payment equally among payers
                 per_payer_amount = amount / len(payer_names) if payer_names else amount
                 for payer_name in payer_names:
-                    if payer_name in payments:  # Only if they're also a participant
-                        payments[payer_name] = per_payer_amount
+                    payments[payer_name] = per_payer_amount
+            else:  # PaymentType.UNEQUAL
+                # Get unequal payment amounts from form
+                unequal_payments = {}
+                for payer_name in payer_names:
+                    payment_field = f'payment_amount_{payer_name}'
+                    if payment_field in request.form:
+                        unequal_payments[payer_name] = float(request.form[payment_field])
+                    else:
+                        unequal_payments[payer_name] = 0.0
+                
+                # Validate unequal payments total
+                if not expense.validate_unequal_payments(unequal_payments):
+                    total_payments = sum(unequal_payments.values())
+                    flash(f"Error: Total payments (${total_payments:.2f}) don't match expense amount (${amount:.2f})", 'error')
+                    return render_template('add_expense.html')
+                
+                # Set the unequal payment amounts
+                for payer_name, payment_amount in unequal_payments.items():
+                    payments[payer_name] = payment_amount
                 
             expense.set_payments(payments)
             
@@ -170,6 +178,7 @@ def edit_expense(expense_id):
             payer_names = [name.strip() for name in expense.paid_by.split(',') if name.strip()]
             participants_str = request.form['participants']
             expense.split_type = SplitType(request.form['split_type'])
+            expense.payment_type = PaymentType(request.form['payment_type'])
             expense.category = request.form.get('category', '') or None
             
             # Parse participants from the participants field (same as add expense)
@@ -191,7 +200,7 @@ def edit_expense(expense_id):
                 # but reset amounts for new participants to 0 (they'll be set from form data later)
                 pass  # Custom amounts will be handled later from form data
             
-            # Handle payments - reset all to 0 first, then process form values
+            # Handle payments based on payment type
             payments = {}
             # Reset all participant payments to 0 first
             for participant in expense.participants:
@@ -201,24 +210,30 @@ def edit_expense(expense_id):
             for previous_payer in previous_payer_names:
                 payments[previous_payer] = 0.0
             
-            # Override with form values for participants
-            for key, value in request.form.items():
-                if key.startswith('payment_amount_'):
-                    try:
-                        index = int(key.split('_')[2])
-                        if index < len(expense.participants):
-                            participant_name = expense.participants[index].name
-                            payments[participant_name] = float(value) if value else 0.0
-                    except (ValueError, IndexError):
-                        continue
-            
-            # If no custom payments specified, distribute among current payers only
-            if sum(payments.values()) == 0:
+            if expense.payment_type == PaymentType.EQUAL:
                 # Distribute payment equally among current payers
                 per_payer_amount = expense.amount / len(payer_names) if payer_names else expense.amount
                 for payer_name in payer_names:
-                    if payer_name in payments:  # Only if they're also a participant
-                        payments[payer_name] = per_payer_amount
+                    payments[payer_name] = per_payer_amount
+            else:  # PaymentType.UNEQUAL
+                # Get unequal payment amounts from form
+                unequal_payments = {}
+                for payer_name in payer_names:
+                    payment_field = f'payment_amount_{payer_name}'
+                    if payment_field in request.form:
+                        unequal_payments[payer_name] = float(request.form[payment_field])
+                    else:
+                        unequal_payments[payer_name] = 0.0
+                
+                # Validate unequal payments total
+                if not expense.validate_unequal_payments(unequal_payments):
+                    total_payments = sum(unequal_payments.values())
+                    flash(f"Error: Total payments (${total_payments:.2f}) don't match expense amount (${expense.amount:.2f})", 'error')
+                    return render_template('edit_expense.html', expense=expense)
+                
+                # Set the unequal payment amounts
+                for payer_name, payment_amount in unequal_payments.items():
+                    payments[payer_name] = payment_amount
             
                 
             expense.set_payments(payments)

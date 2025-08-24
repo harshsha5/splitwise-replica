@@ -37,7 +37,15 @@
 
                 <div class="form-group">
                     <label for="paid_by">Paid By *</label>
-                    <input type="text" id="paid_by" name="paid_by" value="{{ expense.paid_by }}" required placeholder="Person who paid">
+                    <div class="participant-input-container">
+                        <div class="participant-tags" id="payerTags"></div>
+                        <input type="text" id="payerInput" placeholder="Type name and press Enter to add" autocomplete="off">
+                        <datalist id="payerSuggestions"></datalist>
+                    </div>
+                    <input type="hidden" id="paid_by" name="paid_by" 
+                           value="{{ expense.paid_by }}" 
+                           required>
+                    <small>Type names and press Enter to add them. Click × on tags to remove payers</small>
                 </div>
 
                 <div class="form-group">
@@ -125,18 +133,27 @@
 
     <script>
         let participants = [];
+        let payers = [];
 
         // Load participant suggestions from API
         async function loadParticipantSuggestions() {
             try {
                 const response = await fetch('/api/participants');
                 const allParticipants = await response.json();
-                const datalist = document.getElementById('participantSuggestions');
-                datalist.innerHTML = '';
+                const participantDatalist = document.getElementById('participantSuggestions');
+                const payerDatalist = document.getElementById('payerSuggestions');
+                
+                participantDatalist.innerHTML = '';
+                payerDatalist.innerHTML = '';
+                
                 allParticipants.forEach(name => {
-                    const option = document.createElement('option');
-                    option.value = name;
-                    datalist.appendChild(option);
+                    const participantOption = document.createElement('option');
+                    participantOption.value = name;
+                    participantDatalist.appendChild(participantOption);
+                    
+                    const payerOption = document.createElement('option');
+                    payerOption.value = name;
+                    payerDatalist.appendChild(payerOption);
                 });
             } catch (error) {
                 console.log('Could not load participant suggestions');
@@ -188,6 +205,52 @@
             }
             if (document.getElementById('advanced_payments').checked) {
                 updatePaymentDetails();
+            }
+        }
+
+        function addPayer(name) {
+            name = name.trim();
+            if (!name || payers.includes(name)) {
+                return false;
+            }
+            
+            payers.push(name);
+            renderPayerTags();
+            updatePayerHiddenInput();
+            return true;
+        }
+
+        function removePayer(name) {
+            const index = payers.indexOf(name);
+            if (index > -1) {
+                payers.splice(index, 1);
+                renderPayerTags();
+                updatePayerHiddenInput();
+            }
+        }
+
+        function renderPayerTags() {
+            const container = document.getElementById('payerTags');
+            container.innerHTML = '';
+            
+            payers.forEach(name => {
+                const tag = document.createElement('div');
+                tag.className = 'participant-tag';
+                tag.innerHTML = `
+                    <span class="tag-name">${name}</span>
+                    <button type="button" class="tag-remove" onclick="removePayer('${name}')">×</button>
+                `;
+                container.appendChild(tag);
+            });
+        }
+
+        function updatePayerHiddenInput() {
+            document.getElementById('paid_by').value = payers.join(', ');
+            
+            // Auto-enable advanced payments if multiple payers
+            if (payers.length > 1) {
+                document.getElementById('advanced_payments').checked = true;
+                toggleAdvancedPayments();
             }
         }
 
@@ -264,11 +327,18 @@
         document.addEventListener('DOMContentLoaded', function() {
             const participantInput = document.getElementById('participantInput');
             const hiddenParticipants = document.getElementById('participants').value;
+            const hiddenPayers = document.getElementById('paid_by').value;
             
             // Load existing participants from hidden input
             if (hiddenParticipants) {
                 participants = hiddenParticipants.split(',').map(name => name.trim()).filter(name => name);
                 renderParticipantTags();
+            }
+            
+            // Load existing payers from hidden input
+            if (hiddenPayers) {
+                payers = hiddenPayers.split(',').map(name => name.trim()).filter(name => name);
+                renderPayerTags();
             }
             
             // Load suggestions
@@ -295,6 +365,31 @@
 
             // Set datalist for autocomplete
             participantInput.setAttribute('list', 'participantSuggestions');
+            
+            // Initialize payer input functionality
+            const payerInput = document.getElementById('payerInput');
+            
+            // Handle Enter key and comma separation for payers
+            payerInput.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter' || e.key === ',') {
+                    e.preventDefault();
+                    const name = this.value.trim().replace(',', '');
+                    if (addPayer(name)) {
+                        this.value = '';
+                    }
+                }
+            });
+
+            // Handle blur (when user clicks away) for payers
+            payerInput.addEventListener('blur', function() {
+                const name = this.value.trim().replace(',', '');
+                if (name && addPayer(name)) {
+                    this.value = '';
+                }
+            });
+
+            // Set datalist for payer autocomplete
+            payerInput.setAttribute('list', 'payerSuggestions');
         });
     </script>
 </body>

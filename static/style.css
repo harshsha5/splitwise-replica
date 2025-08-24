@@ -415,7 +415,8 @@ button.btn {
     background-color: rgba(255, 255, 255, 0.2);
 }
 
-#participantInput {
+#participantInput,
+#payerInput {
     border: none;
     outline: none;
     padding: 8px 4px;
@@ -425,7 +426,8 @@ button.btn {
     background: transparent;
 }
 
-#participantInput::placeholder {
+#participantInput::placeholder,
+#payerInput::placeholder {
     color: #95a5a6;
 }
 

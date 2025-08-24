@@ -18,7 +18,7 @@ class Expense:
     id: str
     title: str
     amount: float
-    paid_by: str  # Primary payer for display purposes
+    paid_by: str  # Comma-separated list of payers, primary payer for display is first
     participants: List[Participant]
     split_type: SplitType
     date: datetime

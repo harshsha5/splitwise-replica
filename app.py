@@ -45,14 +45,19 @@ def add_expense():
             title = request.form['title']
             amount = float(request.form['amount'])
             paid_by = request.form['paid_by']
+            # Parse multiple payers from the tag system
+            payer_names = [name.strip() for name in paid_by.split(',') if name.strip()]
+            # Use the first payer as the primary payer for display purposes
+            primary_payer = payer_names[0] if payer_names else paid_by
             participants_str = request.form['participants']
             split_type = SplitType(request.form['split_type'])
             category = request.form.get('category', '')
             
-            # Auto-include payer in participants if not already there
+            # Auto-include payers in participants if not already there
             participant_names = [name.strip() for name in participants_str.split(',') if name.strip()]
-            if paid_by not in participant_names:
-                participant_names.append(paid_by)
+            for payer_name in payer_names:
+                if payer_name not in participant_names:
+                    participant_names.append(payer_name)
             
             # Validate that at least one participant exists
             if not participant_names:
@@ -65,15 +70,20 @@ def add_expense():
                 id=str(uuid.uuid4()),
                 title=title,
                 amount=amount,
-                paid_by=paid_by,
+                paid_by=paid_by,  # Store full comma-separated list
                 participants=participants,
                 split_type=split_type,
                 date=datetime.now(),
                 category=category if category else None
             )
             
-            # Handle payments - iterate through all form fields to find payment amounts
+            # Handle payments - reset all to 0 first, then process form values
             payments = {}
+            # Initialize all participants with 0 payment
+            for participant in participants:
+                payments[participant.name] = 0.0
+            
+            # Override with form values for participants
             for key, value in request.form.items():
                 if key.startswith('payment_amount_'):
                     try:
@@ -84,14 +94,13 @@ def add_expense():
                     except (ValueError, IndexError):
                         continue
             
-            # Ensure all participants have a payment amount (default to 0)
-            for participant in participants:
-                if participant.name not in payments:
-                    payments[participant.name] = 0.0
-            
-            # If no custom payments specified, default to primary payer paying full amount
+            # If no custom payments specified, distribute among payers
             if sum(payments.values()) == 0:
-                payments[paid_by] = amount
+                # Distribute payment equally among payers
+                per_payer_amount = amount / len(payer_names) if payer_names else amount
+                for payer_name in payer_names:
+                    if payer_name in payments:  # Only if they're also a participant
+                        payments[payer_name] = per_payer_amount
                 
             expense.set_payments(payments)
             
@@ -151,9 +160,14 @@ def edit_expense(expense_id):
     
     if request.method == 'POST':
         try:
+            # Store previous payers before updating
+            previous_payer_names = [name.strip() for name in expense.paid_by.split(',') if name.strip()]
+            
             expense.title = request.form['title']
             expense.amount = float(request.form['amount'])
             expense.paid_by = request.form['paid_by']
+            # Parse multiple payers from the tag system  
+            payer_names = [name.strip() for name in expense.paid_by.split(',') if name.strip()]
             participants_str = request.form['participants']
             expense.split_type = SplitType(request.form['split_type'])
             expense.category = request.form.get('category', '') or None
@@ -177,8 +191,17 @@ def edit_expense(expense_id):
                 # but reset amounts for new participants to 0 (they'll be set from form data later)
                 pass  # Custom amounts will be handled later from form data
             
-            # Handle payments - iterate through all form fields to find payment amounts
+            # Handle payments - reset all to 0 first, then process form values
             payments = {}
+            # Reset all participant payments to 0 first
+            for participant in expense.participants:
+                payments[participant.name] = 0.0
+            
+            # Also reset all previous payers to 0 (including those who might not be participants)
+            for previous_payer in previous_payer_names:
+                payments[previous_payer] = 0.0
+            
+            # Override with form values for participants
             for key, value in request.form.items():
                 if key.startswith('payment_amount_'):
                     try:
@@ -189,14 +212,13 @@ def edit_expense(expense_id):
                     except (ValueError, IndexError):
                         continue
             
-            # Ensure all participants have a payment amount (default to 0)
-            for participant in expense.participants:
-                if participant.name not in payments:
-                    payments[participant.name] = 0.0
-            
-            # If no custom payments specified, default to primary payer paying full amount
+            # If no custom payments specified, distribute among current payers only
             if sum(payments.values()) == 0:
-                payments[expense.paid_by] = expense.amount
+                # Distribute payment equally among current payers
+                per_payer_amount = expense.amount / len(payer_names) if payer_names else expense.amount
+                for payer_name in payer_names:
+                    if payer_name in payments:  # Only if they're also a participant
+                        payments[payer_name] = per_payer_amount
             
                 
             expense.set_payments(payments)

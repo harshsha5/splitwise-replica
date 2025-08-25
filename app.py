@@ -112,24 +112,34 @@ def add_expense():
                 
             expense.set_payments(payments)
             
-            # Handle custom split amounts - iterate through all form fields
-            if split_type == SplitType.CUSTOM:
-                for key, value in request.form.items():
-                    if key.startswith('custom_amount_'):
-                        try:
-                            index = int(key.split('_')[2])
-                            if index < len(participants) and value:
-                                participants[index].amount_owed = float(value)
-                        except (ValueError, IndexError):
-                            continue
+            # Handle split amounts based on split type
+            if split_type == SplitType.UNEQUAL:
+                # Get unequal split amounts from form
+                unequal_splits = {}
+                for participant in participants:
+                    split_field = f'split_amount_{participant.name}'
+                    if split_field in request.form:
+                        unequal_splits[participant.name] = float(request.form[split_field])
+                    else:
+                        unequal_splits[participant.name] = 0.0
+                
+                # Validate unequal splits total
+                if not expense.validate_unequal_splits(unequal_splits):
+                    total_splits = sum(unequal_splits.values())
+                    flash(f"Error: Total split amounts (${total_splits:.2f}) don't match expense amount (${amount:.2f})", 'error')
+                    return render_template('add_expense.html')
+                
+                # Set the unequal split amounts
+                for participant in participants:
+                    participant.amount_owed = unequal_splits.get(participant.name, 0.0)
             
             expense.calculate_splits()
             
             # Validate that amounts balance correctly
-            if expense.split_type == SplitType.CUSTOM:
+            if expense.split_type == SplitType.UNEQUAL:
                 total_owed = sum(p.amount_owed for p in expense.participants)
                 if abs(total_owed - expense.amount) > 0.01:
-                    flash(f"Error: Custom split amounts (${total_owed:.2f}) don't match expense total (${expense.amount:.2f})", 'error')
+                    flash(f"Error: Split amounts (${total_owed:.2f}) don't match expense total (${expense.amount:.2f})", 'error')
                     return render_template('add_expense.html')
             
             if not expense.validate_payments():
@@ -195,10 +205,10 @@ def edit_expense(expense_id):
             # This ensures equal splits are redistributed among the new participant list
             if expense.split_type == SplitType.EQUAL:
                 expense.calculate_splits()
-            elif expense.split_type == SplitType.CUSTOM:
-                # For custom splits, we need to preserve existing amounts for remaining participants
+            elif expense.split_type == SplitType.UNEQUAL:
+                # For unequal splits, we need to preserve existing amounts for remaining participants
                 # but reset amounts for new participants to 0 (they'll be set from form data later)
-                pass  # Custom amounts will be handled later from form data
+                pass  # Unequal amounts will be handled later from form data
             
             # Handle payments based on payment type
             payments = {}
@@ -238,24 +248,34 @@ def edit_expense(expense_id):
                 
             expense.set_payments(payments)
             
-            # Handle custom split amounts - iterate through all form fields
-            if expense.split_type == SplitType.CUSTOM:
-                for key, value in request.form.items():
-                    if key.startswith('custom_amount_'):
-                        try:
-                            index = int(key.split('_')[2])
-                            if index < len(expense.participants) and value:
-                                expense.participants[index].amount_owed = float(value)
-                        except (ValueError, IndexError):
-                            continue
+            # Handle split amounts based on split type
+            if expense.split_type == SplitType.UNEQUAL:
+                # Get unequal split amounts from form
+                unequal_splits = {}
+                for participant in expense.participants:
+                    split_field = f'split_amount_{participant.name}'
+                    if split_field in request.form:
+                        unequal_splits[participant.name] = float(request.form[split_field])
+                    else:
+                        unequal_splits[participant.name] = 0.0
+                
+                # Validate unequal splits total
+                if not expense.validate_unequal_splits(unequal_splits):
+                    total_splits = sum(unequal_splits.values())
+                    flash(f"Error: Total split amounts (${total_splits:.2f}) don't match expense amount (${expense.amount:.2f})", 'error')
+                    return render_template('edit_expense.html', expense=expense)
+                
+                # Set the unequal split amounts
+                for participant in expense.participants:
+                    participant.amount_owed = unequal_splits.get(participant.name, 0.0)
             
             expense.calculate_splits()
             
             # Validate that amounts balance correctly
-            if expense.split_type == SplitType.CUSTOM:
+            if expense.split_type == SplitType.UNEQUAL:
                 total_owed = sum(p.amount_owed for p in expense.participants)
                 if abs(total_owed - expense.amount) > 0.01:
-                    flash(f"Error: Custom split amounts (${total_owed:.2f}) don't match expense total (${expense.amount:.2f})", 'error')
+                    flash(f"Error: Split amounts (${total_owed:.2f}) don't match expense total (${expense.amount:.2f})", 'error')
                     return render_template('edit_expense.html', expense=expense)
             
             if not expense.validate_payments():
@@ -291,4 +311,4 @@ def get_participants():
     return jsonify(list(all_participants))
 
 if __name__ == '__main__':
-    app.run(debug=True, host='127.0.0.1', port=5000)
+    app.run(debug=True, host='127.0.0.1', port=5001)

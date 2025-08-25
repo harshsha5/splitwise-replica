@@ -34,7 +34,12 @@
                         <strong>Date:</strong> {{ expense.date.strftime('%Y-%m-%d %H:%M') }}
                     </div>
                     <div class="info-row">
-                        <strong>Split type:</strong> {{ expense.split_type.value.title() }}
+                        <strong>Split type:</strong> 
+                        {% if expense.split_type.value == 'equal' %}
+                            Equal Split
+                        {% elif expense.split_type.value == 'unequal' %}
+                            Unequal Split
+                        {% endif %}
                     </div>
                     <div class="info-row">
                         <strong>Payment type:</strong> {{ expense.payment_type.value.title() }}

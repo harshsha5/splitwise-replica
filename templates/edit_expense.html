@@ -104,25 +104,30 @@
 
                 <div class="form-group">
                     <label for="split_type">Split Type *</label>
-                    <select id="split_type" name="split_type" required onchange="toggleCustomSplit()">
-                        <option value="equal" {% if expense.split_type.value == 'equal' %}selected{% endif %}>Equal Split</option>
-                        <option value="custom" {% if expense.split_type.value == 'custom' %}selected{% endif %}>Custom Split</option>
-                    </select>
+                    <div class="split-type-selection">
+                        <button type="button" id="equalSplit" class="split-type-btn {% if expense.split_type.value == 'equal' %}active{% endif %}" onclick="toggleSplitType('equal')">Equal Split</button>
+                        <button type="button" id="unequalSplit" class="split-type-btn {% if expense.split_type.value == 'unequal' %}active{% endif %}" onclick="toggleSplitType('unequal')">Unequal Split</button>
+                    </div>
+                    <input type="hidden" id="split_type" name="split_type" value="{{ expense.split_type.value }}" required>
+                    <small>Choose how the expense amount is split among participants</small>
                 </div>
 
-
-                <div id="custom_splits" style="{% if expense.split_type.value != 'custom' %}display: none;{% endif %}">
-                    <h3>Custom Split Amounts</h3>
-                    <div id="custom_splits_container">
-                        {% if expense.split_type.value == 'custom' %}
+                <div id="unequal_splits" style="{% if expense.split_type.value != 'unequal' %}display: none;{% endif %}">
+                    <h3>Split Amounts</h3>
+                    <div id="unequal_splits_container">
+                        {% if expense.split_type.value == 'unequal' %}
                             {% for participant in expense.participants %}
                                 <div class="form-group">
-                                    <label for="custom_amount_{{ loop.index0 }}">{{ participant.name }} owes:</label>
-                                    <input type="number" id="custom_amount_{{ loop.index0 }}" name="custom_amount_{{ loop.index0 }}" 
+                                    <label for="split_amount_{{ loop.index0 }}">{{ participant.name }} owes:</label>
+                                    <input type="number" id="split_amount_{{ loop.index0 }}" name="split_amount_{{ participant.name }}" 
                                            value="{{ participant.amount_owed }}" step="0.01" min="0" placeholder="0.00">
                                 </div>
                             {% endfor %}
                         {% endif %}
+                    </div>
+                    <div class="split-total-info">
+                        <span id="splitTotalDisplay">Total: $0.00</span>
+                        <span id="splitRemainingDisplay">Remaining: $0.00</span>
                     </div>
                 </div>
 
@@ -152,6 +157,7 @@
         let participants = [];
         let payers = [];
         let paymentAmounts = {};
+        let splitAmounts = {};
 
         // Load participant suggestions from API
         async function loadParticipantSuggestions() {
@@ -217,9 +223,10 @@
         function updateHiddenInput() {
             document.getElementById('participants').value = participants.join(', ');
             
-            // Update custom splits when participants change
-            if (document.getElementById('split_type').value === 'custom') {
-                updateCustomSplits();
+            // Update splits when participants change
+            const splitType = document.getElementById('split_type').value;
+            if (splitType === 'unequal') {
+                updateUnequalSplits();
             }
         }
 
@@ -230,6 +237,14 @@
             }
             
             payers.push(name);
+            
+            // Auto-add payer to participants if not already there
+            if (!participants.includes(name)) {
+                participants.push(name);
+                renderParticipantTags();
+                updateHiddenInput();
+            }
+            
             renderPayerTags();
             updatePayerHiddenInput();
             return true;
@@ -371,43 +386,95 @@
                     return false;
                 }
             }
+            
+            if (document.getElementById('split_type').value === 'unequal') {
+                const totalAmount = parseFloat(document.getElementById('amount').value) || 0;
+                const totalSplit = Object.values(splitAmounts).reduce((sum, amount) => sum + amount, 0);
+                
+                if (Math.abs(totalAmount - totalSplit) > 0.01) {
+                    alert(`Split amounts don't balance! Total expense: $${totalAmount.toFixed(2)}, Total split: $${totalSplit.toFixed(2)}`);
+                    return false;
+                }
+            }
+            
             return true;
         }
 
-        function toggleCustomSplit() {
-            const splitType = document.getElementById('split_type').value;
-            const customSplits = document.getElementById('custom_splits');
+        function toggleSplitType(type) {
+            const equalBtn = document.getElementById('equalSplit');
+            const unequalBtn = document.getElementById('unequalSplit');
+            const unequalSection = document.getElementById('unequal_splits');
+            const splitTypeInput = document.getElementById('split_type');
             
-            if (splitType === 'custom') {
-                customSplits.style.display = 'block';
-                updateCustomSplits();
-            } else {
-                customSplits.style.display = 'none';
+            // Reset all buttons
+            equalBtn.classList.remove('active');
+            unequalBtn.classList.remove('active');
+            
+            // Hide all sections
+            unequalSection.style.display = 'none';
+            
+            if (type === 'equal') {
+                equalBtn.classList.add('active');
+                splitTypeInput.value = 'equal';
+            } else if (type === 'unequal') {
+                unequalBtn.classList.add('active');
+                unequalSection.style.display = 'block';
+                splitTypeInput.value = 'unequal';
+                updateUnequalSplits();
             }
         }
 
-
-        function updateCustomSplits() {
-            const container = document.getElementById('custom_splits_container');
+        function updateUnequalSplits() {
+            const container = document.getElementById('unequal_splits_container');
             
             if (!participants.length) {
                 container.innerHTML = '<p>Please add participants first</p>';
+                updateSplitTotals();
                 return;
             }
             
             container.innerHTML = '';
             
             participants.forEach((name, index) => {
+                const currentAmount = splitAmounts[name] || 0;
                 const div = document.createElement('div');
                 div.className = 'form-group';
                 div.innerHTML = `
-                    <label for="custom_amount_${index}">${name} owes:</label>
-                    <input type="number" id="custom_amount_${index}" name="custom_amount_${index}" 
-                           step="0.01" min="0" placeholder="0.00">
+                    <label for="split_amount_${index}">${name} owes:</label>
+                    <input type="number" id="split_amount_${index}" name="split_amount_${name}" 
+                           value="${currentAmount}" step="0.01" min="0" placeholder="0.00" 
+                           onchange="updateSplitAmount('${name}', this.value)">
                 `;
                 container.appendChild(div);
             });
+            
+            updateSplitTotals();
         }
+
+        function updateSplitAmount(participantName, amount) {
+            splitAmounts[participantName] = parseFloat(amount) || 0;
+            updateSplitTotals();
+        }
+
+        function updateSplitTotals() {
+            const totalAmount = parseFloat(document.getElementById('amount').value) || 0;
+            const totalSplit = Object.values(splitAmounts).reduce((sum, amount) => sum + amount, 0);
+            const remaining = totalAmount - totalSplit;
+            
+            document.getElementById('splitTotalDisplay').textContent = `Total: $${totalSplit.toFixed(2)}`;
+            document.getElementById('splitRemainingDisplay').textContent = `Remaining: $${remaining.toFixed(2)}`;
+            
+            // Color code the remaining amount
+            const remainingDisplay = document.getElementById('splitRemainingDisplay');
+            if (Math.abs(remaining) < 0.01) {
+                remainingDisplay.style.color = '#27ae60'; // Green for balanced
+            } else if (remaining > 0) {
+                remainingDisplay.style.color = '#e74c3c'; // Red for underbalanced
+            } else {
+                remainingDisplay.style.color = '#f39c12'; // Orange for overbalanced  
+            }
+        }
+
 
 
         // Initialize participant input functionality
@@ -437,6 +504,17 @@
                     });
                     updatePaymentTotals();
                 }
+                
+                // Initialize split amounts from existing expense data
+                if (document.getElementById('split_type').value === 'unequal') {
+                    participants.forEach(participantName => {
+                        const splitField = document.querySelector(`input[name="split_amount_${participantName}"]`);
+                        if (splitField) {
+                            splitAmounts[participantName] = parseFloat(splitField.value) || 0;
+                        }
+                    });
+                    updateSplitTotals();
+                }
             }
             
             // Load suggestions
@@ -447,6 +525,9 @@
             amountField.addEventListener('input', function() {
                 if (document.getElementById('payment_type').value === 'unequal') {
                     updatePaymentTotals();
+                }
+                if (document.getElementById('split_type').value === 'unequal') {
+                    updateSplitTotals();
                 }
             });
             

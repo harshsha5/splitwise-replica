@@ -5,7 +5,7 @@ from enum import Enum
 
 class SplitType(Enum):
     EQUAL = "equal"
-    CUSTOM = "custom"
+    UNEQUAL = "unequal"
 
 class PaymentType(Enum):
     EQUAL = "equal"
@@ -39,8 +39,10 @@ class Expense:
             per_person = self.amount / len(self.participants)
             for participant in self.participants:
                 participant.amount_owed = per_person
-        # For CUSTOM splits, amounts should already be set by the caller
-        # This method just ensures consistency
+        elif self.split_type == SplitType.UNEQUAL:
+            # For unequal splits, amounts should already be set by the caller
+            # This method just ensures consistency
+            pass
         
     def get_balance_summary(self) -> Dict[str, float]:
         balances = {}
@@ -82,3 +84,8 @@ class Expense:
         """Validate that unequal payment amounts sum to total expense amount"""
         total_payments = sum(payment_amounts.values())
         return abs(total_payments - self.amount) < 0.01
+    
+    def validate_unequal_splits(self, split_amounts: Dict[str, float]) -> bool:
+        """Validate that unequal split amounts sum to total expense amount"""
+        total_splits = sum(split_amounts.values())
+        return abs(total_splits - self.amount) < 0.01

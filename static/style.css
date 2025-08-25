@@ -432,13 +432,15 @@ button.btn {
 }
 
 /* Payment type selection styles */
-.payment-type-selection {
+.payment-type-selection,
+.split-type-selection {
     display: flex;
     gap: 10px;
     margin-bottom: 10px;
 }
 
-.payment-type-btn {
+.payment-type-btn,
+.split-type-btn {
     padding: 10px 20px;
     border: 2px solid #e1e8ed;
     background-color: white;
@@ -450,31 +452,36 @@ button.btn {
     font-weight: 500;
 }
 
-.payment-type-btn:hover {
+.payment-type-btn:hover,
+.split-type-btn:hover {
     border-color: #3498db;
     color: #3498db;
 }
 
-.payment-type-btn.active {
+.payment-type-btn.active,
+.split-type-btn.active {
     background-color: #3498db;
     color: white;
     border-color: #3498db;
 }
 
 /* Unequal payments section */
-#unequal_payments {
+#unequal_payments,
+#unequal_splits {
     background: #f8f9fa;
     padding: 20px;
     border-radius: 8px;
     margin: 20px 0;
 }
 
-#unequal_payments h3 {
+#unequal_payments h3,
+#unequal_splits h3 {
     color: #2c3e50;
     margin-bottom: 16px;
 }
 
-.payment-total-info {
+.payment-total-info,
+.split-total-info {
     display: flex;
     gap: 20px;
     margin-top: 15px;
@@ -483,15 +490,18 @@ button.btn {
     font-weight: 600;
 }
 
-.payment-total-info span {
+.payment-total-info span,
+.split-total-info span {
     font-size: 16px;
 }
 
-#paymentTotalDisplay {
+#paymentTotalDisplay,
+#splitTotalDisplay {
     color: #2c3e50;
 }
 
-#paymentRemainingDisplay {
+#paymentRemainingDisplay,
+#splitRemainingDisplay {
     color: #e74c3c;
 }
 

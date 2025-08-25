@@ -1,6 +1,7 @@
 # Prompts
 
 ## Feature 1 
+```
 Task: Build an expense split management app. Something like splitwise. 
 
 Specifications:
@@ -16,8 +17,10 @@ Specifications:
 10. Show the net amount the current user owes or is owed.
 11. Can we build this in python?
 12. You can install the required dependency after creating a virtual env for python
+```
 
 ## Feature 2
+```
 Task: Let us try and support options for unequal amounts paid by the payers.
 
 Specifications:
@@ -27,8 +30,10 @@ Specifications:
 4. Validate that the total amount payed matches the sum of the individual amounts paid
 5. Also update the edit expense option to support this. Where the user can switch from equally to unequally and vice versa.
 6. If a user is removed from the paid by list- their name should now not appear if the unequal paid by split is shown. If only one user remains on deletion- the amount paid by that person should automatically change to the total amount.
+```
 
 ## Feature 3 
+```
 Task: Let us try and support options for unequal amounts owed by participants
 
 Specifications:
@@ -40,8 +45,10 @@ Specifications:
 6. The user should be allowed to update the expense to unequal or equal split.
 7. If there is only one person in the participant list- they by default owe the entire amount.
 8. The participant list cannot be empty.
+```
 
 ## Feature 4
+```
 Task: Can we try to beautify the app.
 
 Specifications:
@@ -49,3 +56,4 @@ Specifications:
 2. Change the UI of the app to be more sleek and modern. Make use of the right colors to make the app more appealing.
 3. Make sure the colors are easy on the eyes- not too bright.
 4. Make sure the buttons are clearly visible and don’t blend into the background due to the same color.
+```

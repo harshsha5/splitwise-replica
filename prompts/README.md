@@ -1,7 +1,9 @@
 # Prompts
 
 ## Feature 1 
-Task: Build an expense split management app. Something like splitwise. Specifications:
+Task: Build an expense split management app. Something like splitwise. 
+
+Specifications:
 1. Design the feature for adding and managing expenses.
 2. Adding an expense includes: title, amount, paid by, participants, split type (equal), date, and optional category.
 3. Have a tag based system to add participants and paid by. One should be able to add participants by typing the name and pressing enter. More names can then be added. Similarly there can be more than one person who paid for the expense. Assume equal pay split for now.

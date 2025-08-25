@@ -89,6 +89,7 @@ A Flask-based web application for tracking and splitting expenses among multiple
 - `requirements.txt` - Python dependencies
 - `templates/` - HTML templates
 - `static/` - CSS stylesheets
+- `prompts/` - Prompts used to create the app
 - `venv/` - Virtual environment (created during setup)
 
 ## Dependencies

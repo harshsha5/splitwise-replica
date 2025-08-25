@@ -21,7 +21,7 @@ A Flask-based web application for tracking and splitting expenses among multiple
 
 1. Clone or navigate to the project directory:
    ```bash
-   cd /path/to/vibe_code_testing
+   cd /path/to/splitwise-replica
    ```
 
 2. Create a virtual environment:

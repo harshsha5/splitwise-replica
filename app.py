@@ -33,10 +33,55 @@ def get_user_net_balance(user_name):
     
     return net_balance
 
+def get_user_relationships(user_name):
+    """Calculate individual balances between the user and each other user"""
+    relationships = {}
+    
+    # Get all unique users across all expenses
+    all_users = set()
+    for expense in expenses:
+        for participant in expense.participants:
+            all_users.add(participant.name)
+        for payer in expense.external_payments.keys():
+            all_users.add(payer)
+    
+    # Calculate net balance between user and each other user
+    for other_user in all_users:
+        if other_user == user_name:
+            continue
+            
+        net_between_users = 0.0
+        
+        for expense in expenses:
+            balance_summary = expense.get_balance_summary()
+            user_balance = balance_summary.get(user_name, 0.0)
+            other_balance = balance_summary.get(other_user, 0.0)
+            
+            # Simple approach: if both users are in this expense, calculate direct relationship
+            if user_balance != 0 and other_balance != 0:
+                # If user paid more than they owed and other user paid less than they owed
+                # Then other user effectively owes user money from this expense
+                if user_balance > 0 and other_balance < 0:
+                    # User overpaid, other user underpaid
+                    shared_amount = min(abs(user_balance), abs(other_balance))
+                    net_between_users += shared_amount
+                elif user_balance < 0 and other_balance > 0:
+                    # User underpaid, other user overpaid  
+                    shared_amount = min(abs(user_balance), abs(other_balance))
+                    net_between_users -= shared_amount
+        
+        # Only include relationships with non-zero balances
+        if abs(net_between_users) >= 0.01:
+            relationships[other_user] = net_between_users
+    
+    return relationships
+
 @app.route('/')
 def index():
     user_balance = get_user_net_balance(CURRENT_USER)
-    return render_template('index.html', expenses=expenses, user_balance=user_balance, current_user=CURRENT_USER)
+    user_relationships = get_user_relationships(CURRENT_USER)
+    return render_template('index.html', expenses=expenses, user_balance=user_balance, 
+                         user_relationships=user_relationships, current_user=CURRENT_USER)
 
 @app.route('/add_expense', methods=['GET', 'POST'])
 def add_expense():

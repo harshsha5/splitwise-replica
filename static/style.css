@@ -126,23 +126,43 @@ body {
 }
 
 .container {
-    max-width: 900px;
+    max-width: 1200px;
     margin: 0 auto;
     padding: var(--spacing-6) var(--spacing-4);
 }
 
+/* Main layout with sidebar */
+.main-layout {
+    display: flex;
+    gap: var(--spacing-8);
+    align-items: flex-start;
+}
+
+/* Sidebar containing the balance */
+.sidebar {
+    width: 280px;
+    flex-shrink: 0;
+    position: sticky;
+    top: var(--spacing-6);
+}
+
+/* Main content area */
+.main-content {
+    flex: 1;
+    min-width: 0;
+}
+
 header {
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
+    justify-content: space-between;
     align-items: center;
-    margin-bottom: var(--spacing-12);
-    padding-bottom: var(--spacing-8);
+    margin-bottom: var(--spacing-8);
+    padding: var(--spacing-8);
     background: linear-gradient(135deg, var(--primary-500) 0%, var(--primary-600) 100%);
     border-radius: var(--radius-2xl);
     box-shadow: var(--shadow-xl);
-    gap: var(--spacing-6);
-    padding: var(--spacing-12) var(--spacing-8);
-    margin: calc(-1 * var(--spacing-6)) calc(-1 * var(--spacing-4)) var(--spacing-12) calc(-1 * var(--spacing-4));
+    margin: calc(-1 * var(--spacing-6)) calc(-1 * var(--spacing-4)) var(--spacing-8) calc(-1 * var(--spacing-4));
     position: relative;
     overflow: hidden;
 }
@@ -160,9 +180,6 @@ header::before {
 
 .balance-section {
     width: 100%;
-    display: flex;
-    justify-content: center;
-    z-index: 10;
     position: relative;
 }
 
@@ -174,7 +191,7 @@ header::before {
     border-radius: var(--radius-2xl);
     box-shadow: var(--shadow-lg);
     border: 1px solid rgba(255, 255, 255, 0.2);
-    min-width: 280px;
+    width: 100%;
     position: relative;
     overflow: hidden;
 }
@@ -942,14 +959,27 @@ h3 {
         padding: var(--spacing-4) var(--spacing-3);
     }
     
+    /* Stack layout on mobile */
+    .main-layout {
+        flex-direction: column;
+        gap: var(--spacing-6);
+    }
+    
+    .sidebar {
+        width: 100%;
+        position: static;
+    }
+    
     header {
-        margin: calc(-1 * var(--spacing-4)) calc(-1 * var(--spacing-3)) var(--spacing-8) calc(-1 * var(--spacing-3));
-        padding: var(--spacing-8) var(--spacing-6);
+        margin: calc(-1 * var(--spacing-4)) calc(-1 * var(--spacing-3)) var(--spacing-6) calc(-1 * var(--spacing-3));
+        padding: var(--spacing-6) var(--spacing-4);
+        flex-direction: column;
         gap: var(--spacing-4);
     }
     
     h1 {
         font-size: var(--font-size-3xl);
+        margin-bottom: 0;
     }
     
     .balance {
@@ -959,8 +989,22 @@ h3 {
     }
     
     .current-user-balance {
-        min-width: auto;
         padding: var(--spacing-6);
+    }
+    
+    /* Tooltip positioning for mobile */
+    .balance-tooltip {
+        left: 0;
+        top: 100%;
+        margin-left: 0;
+        margin-top: var(--spacing-3);
+        width: 100%;
+    }
+    
+    .tooltip-content {
+        min-width: auto;
+        max-width: none;
+        width: 100%;
     }
     
     .header-actions {
@@ -1074,5 +1118,146 @@ h3 {
     
     .expense-header h3 {
         font-size: var(--font-size-lg);
+    }
+}
+
+/* Individual Balances Styles */
+.individual-balances {
+    margin-top: var(--spacing-8);
+    background: rgba(255, 255, 255, 0.9);
+    backdrop-filter: blur(20px);
+    border-radius: var(--radius-2xl);
+    padding: var(--spacing-6);
+    box-shadow: var(--shadow-lg);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    position: relative;
+    overflow: hidden;
+}
+
+.individual-balances::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--warning-400), var(--accent-400));
+    border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+}
+
+.individual-balances h3 {
+    margin-bottom: var(--spacing-5);
+    color: var(--gray-800);
+    font-size: var(--font-size-lg);
+    font-weight: 700;
+    text-align: center;
+    letter-spacing: -0.025em;
+}
+
+.relationships-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-3);
+}
+
+.relationship-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--spacing-4);
+    background: linear-gradient(135deg, var(--gray-50) 0%, rgba(255, 255, 255, 0.8) 100%);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--gray-200);
+    box-shadow: var(--shadow-sm);
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
+}
+
+.relationship-item::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 4px;
+    border-radius: var(--radius-lg) 0 0 var(--radius-lg);
+}
+
+.relationship-item.owed::before {
+    background: linear-gradient(180deg, var(--success-400), var(--success-500));
+}
+
+.relationship-item.owes::before {
+    background: linear-gradient(180deg, var(--danger-400), var(--danger-500));
+}
+
+.relationship-item:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 1) 100%);
+}
+
+.relationship-user {
+    font-weight: 600;
+    color: var(--gray-800);
+    font-size: var(--font-size-sm);
+    letter-spacing: -0.025em;
+}
+
+.relationship-amount {
+    font-weight: 700;
+    font-size: var(--font-size-xs);
+    padding: var(--spacing-1) var(--spacing-2);
+    border-radius: var(--radius-md);
+    text-transform: lowercase;
+    letter-spacing: 0.025em;
+}
+
+.relationship-amount.owed {
+    color: var(--success-700);
+    background: var(--success-100);
+    border: 1px solid var(--success-200);
+}
+
+.relationship-amount.owes {
+    color: var(--danger-700);
+    background: var(--danger-100);
+    border: 1px solid var(--danger-200);
+}
+
+/* Mobile responsive styles for individual balances */
+@media (max-width: 768px) {
+    .individual-balances {
+        margin-top: var(--spacing-6);
+        padding: var(--spacing-5);
+    }
+    
+    .relationship-item {
+        flex-direction: column;
+        gap: var(--spacing-2);
+        text-align: center;
+        padding: var(--spacing-3);
+    }
+    
+    .relationship-user {
+        font-size: var(--font-size-base);
+    }
+    
+    .relationship-amount {
+        font-size: var(--font-size-sm);
+        width: 100%;
+        text-align: center;
+    }
+}
+
+@media (max-width: 480px) {
+    .individual-balances {
+        padding: var(--spacing-4);
+    }
+    
+    .individual-balances h3 {
+        font-size: var(--font-size-base);
+        margin-bottom: var(--spacing-4);
     }
 }

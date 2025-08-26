@@ -10,22 +10,46 @@
     <div class="container">
         <header>
             <h1>💰 Splitwise - Expense Tracker</h1>
-            <div class="balance-section">
-                <div class="current-user-balance">
-                    <h2>{{ current_user }}'s Balance</h2>
-                    {% if user_balance > 0 %}
-                        <p class="balance positive">${{ "%.2f"|format(user_balance) }} <span class="balance-text">You are owed</span></p>
-                    {% elif user_balance < 0 %}
-                        <p class="balance negative">${{ "%.2f"|format(-user_balance) }} <span class="balance-text">You owe</span></p>
-                    {% else %}
-                        <p class="balance neutral">$0.00 <span class="balance-text">You're settled up</span></p>
-                    {% endif %}
-                </div>
-            </div>
             <a href="{{ url_for('add_expense') }}" class="btn btn-primary">+ Add Expense</a>
         </header>
 
-        <main>
+        <div class="main-layout">
+            <!-- Left Sidebar with Balance -->
+            <aside class="sidebar">
+                <div class="balance-section">
+                    <div class="current-user-balance">
+                        <h2>{{ current_user }}'s Balance</h2>
+                        {% if user_balance > 0 %}
+                            <p class="balance positive">${{ "%.2f"|format(user_balance) }} <span class="balance-text">You are owed</span></p>
+                        {% elif user_balance < 0 %}
+                            <p class="balance negative">${{ "%.2f"|format(-user_balance) }} <span class="balance-text">You owe</span></p>
+                        {% else %}
+                            <p class="balance neutral">$0.00 <span class="balance-text">You're settled up</span></p>
+                        {% endif %}
+                    </div>
+                    
+                    {% if user_relationships %}
+                    <div class="individual-balances">
+                        <h3>Individual Balances</h3>
+                        <div class="relationships-list">
+                            {% for other_user, amount in user_relationships.items() | sort(attribute='1', reverse=true) %}
+                                <div class="relationship-item {% if amount > 0 %}owed{% else %}owes{% endif %}">
+                                    <div class="relationship-user">{{ other_user }}</div>
+                                    {% if amount > 0 %}
+                                        <div class="relationship-amount owed">owes you ${{ "%.2f"|format(amount) }}</div>
+                                    {% else %}
+                                        <div class="relationship-amount owes">you owe ${{ "%.2f"|format(-amount) }}</div>
+                                    {% endif %}
+                                </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </aside>
+
+            <!-- Main Content Area -->
+            <main class="main-content">
             {% with messages = get_flashed_messages(with_categories=true) %}
                 {% if messages %}
                     <div class="flash-messages">
@@ -75,7 +99,8 @@
                     <a href="{{ url_for('add_expense') }}" class="btn btn-primary">Add Your First Expense</a>
                 </div>
             {% endif %}
-        </main>
+            </main>
+        </div>
     </div>
 
     <script>

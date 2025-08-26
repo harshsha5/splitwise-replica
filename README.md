@@ -2,6 +2,8 @@
 
 A Flask-based web application for tracking and splitting expenses among multiple participants.
 
+![Splitwise Expense Tracker](images/splitwise-screenshot.png)
+
 ## Features
 
 - Add and manage expenses with multiple payers and participants

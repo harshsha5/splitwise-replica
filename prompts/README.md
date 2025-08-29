@@ -15,8 +15,9 @@ Specifications:
 8. The payer should be added to the participants list by default. The payer can however be removed once editing the expense.
 9. Assume the current user to be Veer.
 10. Show the net amount the current user owes or is owed.
-11. Can we build this in python?
-12. You can install the required dependency after creating a virtual env for python
+11. The app should start with no transactions everytime the app is restarted.
+12. Let us build the application with python and flask.
+13. You can install the required dependency after creating a virtual env for python
 ```
 
 ## Feature 2

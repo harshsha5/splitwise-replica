@@ -58,3 +58,13 @@ Specifications:
 3. Make sure the colors are easy on the eyes- not too bright.
 4. Make sure the buttons are clearly visible and don’t blend into the background due to the same color.
 ```
+
+## Feature 5
+```
+Task: Can we try to update the balance section
+
+Specifications:
+1. Let’s move this section to the left pane.
+2. Also add a section below it that shows the total amount owed to or owed by other users to the current user.
+3. Ensure that the frontend changes still match the current UI theme and design.
+```
